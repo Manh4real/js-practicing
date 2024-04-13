@@ -1,4 +1,7 @@
 "use strict";
+
+import { padZero } from "./util.js";
+
 /*jshint esversion: 6*/
 // const text = document.querySelector('.title');
 
@@ -116,65 +119,27 @@ let main = document.createElement("div");
 main.className = "main";
 document.body.prepend(main);
 
-let wds = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
+let WEEKDAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
 
 // CALENDAR of a specific year's month
-function createCalendar(elem, year, month, date) {
+function createCalendar(containerEl, year, month, day) {
   let table = document.createElement("table");
   table.classList.add("shadow");
-  elem.append(table);
+  containerEl.append(table);
 
-  let firstDay = new Date(year, month - 1).getDay(); // first day of the current month
-  firstDay = firstDay == 0 ? 6 : firstDay - 1;
+  const monthInfo = getMonthInfo(year, month);
 
-  let day = new Date(year, month, 0).getDate(); // get the last day of the current month (trick)
-  let weeks = Math.ceil(day / 7) + 1;
-
-  for (let i = 0; i < weeks + 1; i++) {
-    let row = document.createElement("tr");
-    for (let j = 0; j < 7; j++) {
-      if (i == 0) {
-        // create head row (title row)
-        let head = document.createElement("th");
-        head.textContent = wds[j];
-        row.append(head);
-        continue;
-      }
-      let cell = document.createElement("td");
-      row.append(cell);
-    }
-    table.append(row);
-  }
-  // set value (day) for table cells.
-  let d = 0;
-  for (let i = 1; i < weeks + 1; i++) {
-    for (let j = 0; j < 7; j++) {
-      if (j < firstDay && i == 1) continue; // to skip cells in front of first day of the month.
-      if (i == 1 && j == firstDay) table.rows[i].cells[j].innerHTML = ++d;
-      // start setting values from here
-      else if (d < day) table.rows[i].cells[j].innerHTML = ++d; // till d = day (notice the "++d")
-    }
-  }
-  // Styling cells
-  let cells = table.getElementsByTagName("td");
-  for (let cell of cells) {
-    if (cell.innerHTML == date.getDate()) {
-      cell.style.background = "#eee";
-      cell.style.borderRadius = "22px";
-      cell.style.border = "2px solid #000";
-    }
-  }
+  initEmptyRows(table, monthInfo);
+  initCalendarDayValues(table, monthInfo);
+  styleCells(table, day);
 }
 
 let date = new Date();
-createCalendar(main, date.getFullYear(), date.getMonth() + 1, date);
-// INSERT with MM/YY
-main.insertAdjacentHTML(
-  "afterbegin",
-  `<div>
-      <h2>${date.toUTCString().split(" ").slice(2, 4).join(" ")}</h2>
-  </div>`
-);
+createCalendar(main, date.getFullYear(), date.getMonth() + 2, date.getDate());
+initCalendarHeader(main);
+
+clock();
+
 // run CLOCK
 function clock() {
   let div = document.createElement("div");
@@ -188,17 +153,81 @@ function clock() {
     let minutes = date.getMinutes();
     let seconds = date.getSeconds();
     return `
-        ${(hours - 10 < 0 ? "0" + hours : hours) + "<span>h</span>"}
-      <span>:</span>
-        ${(minutes - 10 < 0 ? "0" + minutes : minutes) + "<span>m</span>"}
-      <span>:</span>
-        ${(seconds - 10 < 0 ? "0" + seconds : seconds) + "<span>s</span>"}
+        ${padZero(hours)}<span>h</span><span>:</span>
+        ${padZero(minutes)}<span>m</span><span>:</span>
+        ${padZero(seconds)}<span>s</span>
     `;
   }
   div.innerHTML = getTime();
+
   setInterval(() => {
     div.innerHTML = getTime();
   }, 1000);
 }
 
-clock();
+function initCalendarHeader(containerEl) {
+  // INSERT with MM/YY
+  containerEl.insertAdjacentHTML(
+    "afterbegin",
+    `<div>
+        <h2>${date.toUTCString().split(" ").slice(2, 4).join(" ")}</h2>
+    </div>`
+  );
+}
+
+function initEmptyRows(tableEl, { weekCount }) {
+  for (let i = 0; i < weekCount + 1; i++) {
+    let row = document.createElement("tr");
+    for (let j = 0; j < 7; j++) {
+      if (i == 0) {
+        // create head row (title row)
+        let head = document.createElement("th");
+        head.textContent = WEEKDAYS[j];
+        row.append(head);
+        continue;
+      }
+      let cell = document.createElement("td");
+      row.append(cell);
+    }
+    tableEl.append(row);
+  }
+}
+
+function initCalendarDayValues(tableEl, monthInfo) {
+  const { weekCount, monthFirstDay, monthLastDay } = monthInfo;
+
+  let d = 0;
+  for (let i = 1; i < weekCount + 1; i++) {
+    for (let j = 0; j < 7; j++) {
+      // to skip cells in front of first day of the month.
+      if (j < monthFirstDay && i == 1) continue;
+      // start setting values from here
+      else if (d < monthLastDay) tableEl.rows[i].cells[j].innerHTML = ++d; // till d = day (notice the "++d")
+    }
+  }
+}
+
+function styleCells(tableEl, today) {
+  let cells = tableEl.getElementsByTagName("td");
+  for (let cell of cells) {
+    if (cell.innerHTML == today) {
+      cell.style.background = "#eee";
+      cell.style.borderRadius = "22px";
+      cell.style.border = "2px solid #000";
+    }
+  }
+}
+
+function getMonthInfo(year, month) {
+  let monthFirstDay = new Date(year, month - 1).getDay(); // first day of the current month
+  monthFirstDay = monthFirstDay == 0 ? 6 : monthFirstDay - 1;
+
+  let monthLastDay = new Date(year, month, 0).getDate(); // get the last day of the current month (trick)
+  let weekCount = Math.ceil(monthLastDay / 7) + 1;
+
+  return {
+    monthFirstDay,
+    monthLastDay,
+    weekCount,
+  };
+}
